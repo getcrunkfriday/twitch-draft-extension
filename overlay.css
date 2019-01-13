@@ -1,0 +1,14 @@
+body {
+    background-color: #AAAAAA;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+#container{
+	width:640px; 
+	height:480px;
+}
+
+#mmCanvas{
+	width:640px;
+	height:480px;
+}
