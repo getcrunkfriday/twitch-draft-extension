@@ -1,14 +1,9 @@
 /*
-
-Chatbot for Minion Masters card selection in draft.
-Uses boilerplate Twitch WebSocket IRC code. License information below:
-
-Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance with the License. A copy of the License is located at
-    http://aws.amazon.com/apache2.0/
-or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+Stream overlay methods for Twitch Draft extension.
 */
 
+
+/* Twitch helper methods */
 var token = "";
 var tuid = "";
 
@@ -35,12 +30,17 @@ twitch.onAuthorized(function(auth) {
   setAuth(token);
 });
 
+/* Canvas helper methods */
 // Globals for keeping track of clicks and boxes.
 var cnvs = document.getElementById("mmCanvas");
 var boxes = [[],[],[]];
 cnvs.addEventListener('click', canvasClicked);
 
-
+/**
+ * Captures the click on a canvas, and sends it to the active VotingContainer
+ * to check which RectangleClickBox was clicked.
+ * @param {MouseEvent} event 
+ */
 function canvasClicked(event)
 {
     var x = event.clientX;
@@ -48,6 +48,13 @@ function canvasClicked(event)
     container.onVote(x, y)
 }
 
+/**
+ * Checks if this is in between a and b.
+ * 
+ * @this an int that is checked if it is in between a and b.
+ * @param {int} a 
+ * @param {int} b 
+ */
 var inBetween = function(a, b)
 {
     if(a>b)
@@ -61,7 +68,8 @@ var inBetween = function(a, b)
 }
 Number.prototype.inBetween = inBetween;
 
-
+/* Overly style dictionaries.
+TODO: Unify these into one */
 var selectedBoxStyle = {
     "strokeStyle": "#FF0000"
 };
@@ -93,9 +101,16 @@ var textStyles = {
     "unselected": Object.assign({}, unselectedTextStyle, commonTextStyle)
 };
 
-
+/**
+ * VotingContainer contains (typically) a group of options (RectangleClickBox),
+ * and voting results based on which option was clicked.
+ */
 class VotingContainer
 {
+    /**
+     * Initialize a voting container with no options.
+     * @param {Context} ctx 
+     */
     constructor(ctx)
     {
         this.ctx = ctx;
@@ -105,7 +120,11 @@ class VotingContainer
         this.maxVote = 0;
     }
 
-
+    /**
+     * When an option is clicked, recalculate the winning
+     * option.
+     * @param {RectangleClickBox} option 
+     */
     updateWinner(option)
     {
         if (option.vote === this.maxVote)
@@ -125,6 +144,10 @@ class VotingContainer
         }
     }
 
+    /**
+     * Add a new option.
+     * @param {RectangleClickBox} option 
+     */
     addOption(option)
     {
         this.options.push(option);
@@ -133,6 +156,11 @@ class VotingContainer
     }
 
 
+    /**
+     * Called when the canvas is clicked at x,y.
+     * @param {int} x 
+     * @param {int} y 
+     */
     onVote(x, y)
     {
         console.log(x, y)
@@ -148,7 +176,11 @@ class VotingContainer
         }
     }
 
-
+    /**
+     * Increments the vote for an option, and makes
+     * drawing updates.
+     * @param {RectangleClickBox} option 
+     */
     voteOption(option)
     {
         this.total += 1;
@@ -157,7 +189,11 @@ class VotingContainer
         this.draw();
     }
 
-
+    /**
+     * Check if an option was clicked, and return it.
+     * @param {int} x 
+     * @param {int} y 
+     */
     getOption(x, y)
     {
         for (let option of this.options)
@@ -170,7 +206,9 @@ class VotingContainer
         return null;
     }
 
-
+    /**
+     * Redraw the containing options.
+     */
     draw()
     {
         this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
@@ -181,8 +219,20 @@ class VotingContainer
     }
 }
 
+/**
+ * Contains box/text positions and draw functions for voting options in an overlay. 
+ */
 class RectangleClickBox
 {
+    /**
+     * Initializes a voting option.
+     * @param {VotingContainer} container 
+     * @param {String} label 
+     * @param {int} x 
+     * @param {int} y 
+     * @param {int} width 
+     * @param {int} height 
+     */
     constructor(container, label, x, y, width, height)
     {
         this.parent = container;
@@ -208,14 +258,20 @@ class RectangleClickBox
         this.style = "unselected";
     }
 
-
+    /**
+     * Check if x and y are within this box.
+     * @param {int} x 
+     * @param {int} y 
+     */
     containsPoint(x, y)
     {
         return (x.inBetween(this.x, this.x + this.width)
                 && y.inBetween(this.y, this.y + this.height));
     }
 
-
+    /**
+     * Gets the position of the box label.
+     */
     getLabelPos()
     {
         var x = this.x + this.width/2;
@@ -223,7 +279,9 @@ class RectangleClickBox
         return [x, y];
     }
 
-
+    /**
+     * Gets the position of the box percentage label.
+     */
     getPercentagePos()
     {
         var x = this.x + this.width/2;
@@ -231,20 +289,27 @@ class RectangleClickBox
         return [x, y];
     }
 
-
+    /**
+     * Recalculate the ratio of clicks on this box versus
+     * total clicks within the parent container.
+     */
     get ratio()
     {
         return this.parent.total && this.vote / this.parent.total;
     }
 
-
+    /**
+     * Return a formatted string of the current vote ratio.
+     */
     formatPercentage()
     {
         var percent = this.ratio * 100;
         return percent.toFixed(0).toString()+"%"
     }
 
-
+    /**
+     * Redraw the box based on current style options.
+     */
     draw()
     {
         this.ctx.beginPath();
@@ -266,16 +331,11 @@ class RectangleClickBox
     }
 }
 
-
-class LayOut
-{
-    constructor()
-    {
-        this.elements = [];
-    }
-}
-
-
+/**
+ * Builds a voting container based on the selectType.
+ * TODO: Should build a container based on OverlayType.
+ * @param {int} selectType 
+ */
 function buildContainer(selectType)
 {
     if (selectType == 1)
@@ -296,6 +356,38 @@ function buildContainer(selectType)
             x += 260/resScale;
         }
         return voteContainer;
+    }
+}
+
+var OverlayType = freeze({"MINIONMASTERS":1});
+
+/**
+ * Template Overlay class. Meant to contain styles, and methods
+ * for transitioning between VotingContainers.
+ */
+class Overlay {
+    containers=[];
+    styleOptions={};
+    constructor(id,styleOptions) {
+        this.id = id;
+        this.containers= {};
+        this.styleOptions = {};
+    }
+    next()
+    {
+    }
+}
+
+/**
+ * Minion Masters Overlay class.
+ * Contains overlay containers for Hero and Card voting.
+ */
+class MinionMastersOverlay extends Overlay {
+    constructor(id,styleOptions) {
+        super(id,Object.assign({},{
+            "startingLineWidth":"1px",
+            "maxLineWidth":"50px"
+        },styleOptions));
     }
 }
 
@@ -387,5 +479,6 @@ function initialDraw(selectType,percentages)
     }
 */
 
+// TODO: Should build container based on style options set in streamer panel.
 var container = buildContainer(1);
 container.draw();
