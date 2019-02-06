@@ -9,7 +9,6 @@ var tuid = "";
 
 var twitch = window.Twitch.ext;
 var resScale = 3;
-var maxWidth = 34 / resScale;
 
 function setAuth(token) {
   Object.keys(requests).forEach((req) => {
@@ -45,7 +44,7 @@ function canvasClicked(event)
 {
     var x = event.clientX;
     var y = event.clientY;
-    container.onVote(x, y)
+    container.onVote(x, y);
 }
 
 /**
@@ -68,38 +67,47 @@ var inBetween = function(a, b)
 }
 Number.prototype.inBetween = inBetween;
 
-/* Overly style dictionaries.
-TODO: Unify these into one */
-var selectedBoxStyle = {
-    "strokeStyle": "#FF0000"
-};
+// Style options class.
+class StyleOptions {
+    constructor()
+    {
+        this.selectedBoxStyle = {
+            "strokeStyle": "#FF0000"
+        };
 
-var unselectedBoxStyle = {
-    "strokeStyle": "#FFFFFF"
-};
+        this.votingStyle = {
+            "maxWidth": 50/resScale,
+            "startingWidth": 1/resScale
+        }
 
-var boxStyles = {
-    "selected": selectedBoxStyle,
-    "unselected": unselectedBoxStyle
-};
+        this.unselectedBoxStyle = {
+            "strokeStyle": "#FFFFFF"
+        };
 
-var commonTextStyle = {
-    "font": "italic 16px arial",
-    "textAlign": "center"
+        this.boxStyles = {
+            "selected": this.selectedBoxStyle,
+            "unselected": this.unselectedBoxStyle
+        };
+
+        this.commonTextStyle = {
+            "font": "italic 16px arial",
+            "textAlign": "center"
+        }
+
+        this.selectedTextStyle = {
+            "fillStyle": "#FF0000"
+        };
+
+        this.unselectedTextStyle = {
+            "fillStyle": "#FFFFFF"
+        };
+
+        this.textStyles = {
+            "selected": Object.assign({}, this.selectedTextStyle, this.commonTextStyle),
+            "unselected": Object.assign({}, this.unselectedTextStyle, this.commonTextStyle)
+        };
+    }
 }
-
-var selectedTextStyle = {
-    "fillStyle": "#FF0000"
-};
-
-var unselectedTextStyle = {
-    "fillStyle": "#FFFFFF"
-};
-
-var textStyles = {
-    "selected": Object.assign({}, selectedTextStyle, commonTextStyle),
-    "unselected": Object.assign({}, unselectedTextStyle, commonTextStyle)
-};
 
 /**
  * VotingContainer contains (typically) a group of options (RectangleClickBox),
@@ -233,7 +241,7 @@ class RectangleClickBox
      * @param {int} width 
      * @param {int} height 
      */
-    constructor(container, label, x, y, width, height)
+    constructor(container, styleOptions, label, x, y, width, height)
     {
         this.parent = container;
         this.ctx = container.ctx;
@@ -242,7 +250,8 @@ class RectangleClickBox
         this.y = y;
         this.width = width;
         this.height = height;
-        this.style = "unselected";
+        this.styleOptions = styleOptions;
+        this.style= "unselected";
         this.vote = 0;
     }
 
@@ -314,15 +323,15 @@ class RectangleClickBox
     {
         this.ctx.beginPath();
         this.ctx.rect(this.x, this.y, this.width, this.height);
-        this.ctx.lineWidth = 1 + this.ratio * maxWidth;
-        for (var key in boxStyles[this.style])
+        for (var key in this.styleOptions.boxStyles[this.style])
         {
-            this.ctx[key] = boxStyles[this.style][key];
+            this.ctx[key] = this.styleOptions.boxStyles[this.style][key];
         }
+        this.ctx.lineWidth=1+(this.ratio*this.styleOptions.votingStyle["maxWidth"]);
         this.ctx.stroke();
-        for (var key in textStyles[this.style])
+        for (var key in this.styleOptions.textStyles[this.style])
         {
-            this.ctx[key] = textStyles[this.style][key];
+            this.ctx[key] = this.styleOptions.textStyles[this.style][key];
         }
         var [x, y] = this.getLabelPos();
         this.ctx.fillText(this.label, x, y);
@@ -351,7 +360,7 @@ function buildContainer(selectType)
         for (var i = 0; i < 3; i++)
         {
             var option = new RectangleClickBox(
-                voteContainer, labels[i], x, y, width, height);
+                voteContainer, new StyleOptions(), labels[i], x, y, width, height);
             voteContainer.addOption(option);
             x += 260/resScale;
         }
@@ -359,19 +368,18 @@ function buildContainer(selectType)
     }
 }
 
-var OverlayType = freeze({"MINIONMASTERS":1});
+var OverlayType = Object.freeze({"MINIONMASTERS":1});
 
 /**
  * Template Overlay class. Meant to contain styles, and methods
  * for transitioning between VotingContainers.
  */
 class Overlay {
-    containers=[];
-    styleOptions={};
-    constructor(id,styleOptions) {
+    constructor(id,ctx,styleOptions) {
         this.id = id;
         this.containers= {};
         this.styleOptions = {};
+        this.ctx = ctx;
     }
     next()
     {
@@ -383,101 +391,74 @@ class Overlay {
  * Contains overlay containers for Hero and Card voting.
  */
 class MinionMastersOverlay extends Overlay {
-    constructor(id,styleOptions) {
+    constructor(id,ctx,styleOptions) {
+        var styleOptions = styleOptions;
+
+
         super(id,Object.assign({},{
             "startingLineWidth":"1px",
             "maxLineWidth":"50px"
-        },styleOptions));
+        },ctx,styleOptions));
+
+        this.buildHeroContainer();
+        this.buildCardContainer();
+        this.numHeroContainers = 1;
+        this.numCardContainers = 10;
+
+    }
+    next() {
+        if (this.numHeroContainers > 0)
+        {
+            this.containers["Hero"].draw();
+            this.numHeroContainers-=1;
+        }
+        else if(this.numCardContainers > 0)
+        {
+            this.containers["Card"].draw();
+            this.numCardContainers-=1;
+        }
+        else
+        {
+            this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+            this.numHeroContainers = 1;
+            this.numCardContainers = 10;
+        }
+    }
+    buildHeroContainer()
+    {
+        var heroVotingContainer = new VotingContainer(this.ctx);
+        var voteLabels=["#A","#B","#C"];
+        var x=295/resScale;
+        var y=310/resScale;
+        var xSpacing=450/resScale;
+        var width=430/resScale;
+        var height=510/resScale
+        for(var i =0; i < 3; i++)
+        {
+            var option = new RectangleClickBox(heroVotingContainer, labels[i], x, y, width, height);
+            heroVotingContainer.addOption(option);
+            x+=xSpacing;
+        }
+        this.containers["Hero"]=heroVotingContainer;
+    }
+    buildCardContainer()
+    {
+        var cardVotingContainer = new VotingContainer(this.ctx);
+        var voteLabels=["#A","#B","#C"];
+        var x=590/resScale;
+        var y=417/resScale;
+        var xSpacing=260/resScale
+        var width=220/resScale;
+        var height=288/resScale;;
+        for(var i =0; i < 3; i++)
+        {
+            var option = new RectangleClickBox(cardVotingContainer, labels[i], x, y, width, height);
+            cardVotingContainer.addOption(option);
+            x+=xSpacing;
+        }
+        this.containers["Card"]=cardVotingContainer;
     }
 }
-
-/*
-function initialDraw(selectType,percentages)
-    {
-        if (selectType == 0)
-        {
-            var x=295/resScale;
-            var y=310/resScale;
-            var maxWidth=34/resScale;
-            var cnvs= document.getElementById("mmCanvas");
-            var ctx = cnvs.getContext("2d");
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            var labels=["#A","#B","#C"];
-            var percentageLabels=[(percentages[0]*100).toFixed(0).toString()+"%",(percentages[1]*100).toFixed(0).toString()+"%",(percentages[2]*100).toFixed(0).toString()+"%"];
-            var maxPercentage=Math.max(...percentages);
-            for (var i = 0; i < 3; i++) {
-                ctx.beginPath();
-                ctx.rect(x,y,430/resScale,510/resScale);
-                ctx.lineWidth=1+(percentages[i]*maxWidth);
-                console.log("line width "+ctx.lineWidth);
-                if (percentages[i] === maxPercentage) {
-                    ctx.strokeStyle="#FF0000";
-                }
-                else {
-                    ctx.strokeStyle="#FFFFFF";
-                }
-                ctx.stroke();
-                ctx.font = "italic 16px arial";
-                if (percentages[i] === maxPercentage)
-                {
-                    ctx.fillStyle="#FF0000";
-                }
-                else {
-                    ctx.fillStyle="#FFFFFF";
-                }
-                ctx.fillText(labels[i],  x+((510/resScale)/2)-60/resScale, y+(600/resScale));
-                ctx.fillText(percentageLabels[i], (x+((510/resScale)/2)-70/resScale), y+(650/resScale));
-                ctx.stroke();
-                boxes[i]=[x,y,430/resScale,510/resScale];
-                x+=450/resScale;
-            }
-
-        }
-        else if (selectType == 1)
-        {
-            var x=590/resScale;
-            var y=417/resScale;
-            var maxWidth=44/resScale;
-            var cnvs= document.getElementById("mmCanvas");
-            var ctx = cnvs.getContext("2d");
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            var labels=["#A","#B","#C"];
-            var percentageLabels=[(percentages[0]*100).toFixed(0).toString()+"%",(percentages[1]*100).toFixed(0).toString()+"%",(percentages[2]*100).toFixed(0).toString()+"%"];
-            var maxPercentage=Math.max(...percentages);
-            for (var i = 0; i < 3; i++) {
-                ctx.beginPath();
-                ctx.rect(x,y,220/resScale,288/resScale);
-                ctx.lineWidth=1+(percentages[i]*maxWidth);
-                console.log("line width "+ctx.lineWidth);
-                if (percentages[i] === maxPercentage) {
-                    ctx.strokeStyle="#FF0000";
-                }
-                else {
-                    ctx.strokeStyle="#FFFFFF";
-                }
-                ctx.stroke();
-                ctx.font = "italic 16px arial";
-                if (percentages[i] === maxPercentage)
-                {
-                    ctx.fillStyle="#FF0000";
-                }
-                else {
-                    ctx.fillStyle="#FFFFFF";
-                }
-                ctx.fillText(labels[i],  x+((288/resScale)/2)-60/resScale, y+(350/resScale));
-                ctx.fillText(percentageLabels[i], x+((288/resScale)/2)-70/resScale, y+(400/resScale));
-                boxes[i]=[x,y,430/resScale,510/resScale];
-                x+=260/resScale;
-            }
-        }
-        else if (selectType == -1) {
-            var cnvs= document.getElementById("mmCanvas");
-            var ctx = cnvs.getContext("2d");
-            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        }
-
-    }
-*/
 
 // TODO: Should build container based on style options set in streamer panel.
 var container = buildContainer(1);
