@@ -38,7 +38,7 @@ cnvs.addEventListener('click', canvasClicked);
 /**
  * Captures the click on a canvas, and sends it to the active VotingContainer
  * to check which RectangleClickBox was clicked.
- * @param {MouseEvent} event 
+ * @param {MouseEvent} event
  */
 function canvasClicked(event)
 {
@@ -49,10 +49,10 @@ function canvasClicked(event)
 
 /**
  * Checks if this is in between a and b.
- * 
+ *
  * @this an int that is checked if it is in between a and b.
- * @param {int} a 
- * @param {int} b 
+ * @param {int} a
+ * @param {int} b
  */
 var inBetween = function(a, b)
 {
@@ -117,7 +117,7 @@ class VotingContainer
 {
     /**
      * Initialize a voting container with no options.
-     * @param {Context} ctx 
+     * @param {Context} ctx
      */
     constructor(ctx)
     {
@@ -131,7 +131,7 @@ class VotingContainer
     /**
      * When an option is clicked, recalculate the winning
      * option.
-     * @param {RectangleClickBox} option 
+     * @param {RectangleClickBox} option
      */
     updateWinner(option)
     {
@@ -154,7 +154,7 @@ class VotingContainer
 
     /**
      * Add a new option.
-     * @param {RectangleClickBox} option 
+     * @param {RectangleClickBox} option
      */
     addOption(option)
     {
@@ -166,8 +166,8 @@ class VotingContainer
 
     /**
      * Called when the canvas is clicked at x,y.
-     * @param {int} x 
-     * @param {int} y 
+     * @param {int} x
+     * @param {int} y
      */
     onVote(x, y)
     {
@@ -187,7 +187,7 @@ class VotingContainer
     /**
      * Increments the vote for an option, and makes
      * drawing updates.
-     * @param {RectangleClickBox} option 
+     * @param {RectangleClickBox} option
      */
     voteOption(option)
     {
@@ -199,8 +199,8 @@ class VotingContainer
 
     /**
      * Check if an option was clicked, and return it.
-     * @param {int} x 
-     * @param {int} y 
+     * @param {int} x
+     * @param {int} y
      */
     getOption(x, y)
     {
@@ -228,18 +228,18 @@ class VotingContainer
 }
 
 /**
- * Contains box/text positions and draw functions for voting options in an overlay. 
+ * Contains box/text positions and draw functions for voting options in an overlay.
  */
 class RectangleClickBox
 {
     /**
      * Initializes a voting option.
-     * @param {VotingContainer} container 
-     * @param {String} label 
-     * @param {int} x 
-     * @param {int} y 
-     * @param {int} width 
-     * @param {int} height 
+     * @param {VotingContainer} container
+     * @param {String} label
+     * @param {int} x
+     * @param {int} y
+     * @param {int} width
+     * @param {int} height
      */
     constructor(container, styleOptions, label, x, y, width, height)
     {
@@ -269,8 +269,8 @@ class RectangleClickBox
 
     /**
      * Check if x and y are within this box.
-     * @param {int} x 
-     * @param {int} y 
+     * @param {int} x
+     * @param {int} y
      */
     containsPoint(x, y)
     {
@@ -343,7 +343,7 @@ class RectangleClickBox
 /**
  * Builds a voting container based on the selectType.
  * TODO: Should build a container based on OverlayType.
- * @param {int} selectType 
+ * @param {int} selectType
  */
 function buildContainer(selectType)
 {
