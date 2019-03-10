@@ -10,6 +10,25 @@ var tuid = "";
 var twitch = window.Twitch.ext;
 var resScale = 3;
 
+var requests = {
+    set: createRequest('POST', 'add_vote'),
+    get: createRequest('GET', 'get_votes')
+}
+
+/**
+ * Creates a request to the backend, based on requests.
+ *
+ **/
+function createRequest(type, method) {
+
+    return {
+        type: type,
+        url: 'https://localhost:5000/draft_extention/' + method,
+        success: setContainerVotes,
+        error: logError
+    }
+}
+
 function setAuth(token) {
   Object.keys(requests).forEach((req) => {
       twitch.rig.log('Setting auth headers');
@@ -35,6 +54,11 @@ var cnvs = document.getElementById("mmCanvas");
 var boxes = [[],[],[]];
 cnvs.addEventListener('click', canvasClicked);
 
+twitch.listen('broadcast', function(target, contentType, votes) {
+    twitch.rig.log('Received votes.');
+    container.setVotes(votes);
+})
+
 /**
  * Captures the click on a canvas, and sends it to the active VotingContainer
  * to check which RectangleClickBox was clicked.
@@ -45,6 +69,11 @@ function canvasClicked(event)
     var x = event.clientX;
     var y = event.clientY;
     container.onVote(x, y);
+}
+
+function setContainerVotes(votes)
+{
+    container.setVotes(votes);
 }
 
 /**
@@ -124,6 +153,7 @@ class VotingContainer
         this.ctx = ctx;
         this.total = 0;
         this.options = [];
+        this.optionsMap={};
         this.winners = [];
         this.maxVote = 0;
     }
@@ -154,11 +184,13 @@ class VotingContainer
 
     /**
      * Add a new option.
+     * @param {string} key
      * @param {RectangleClickBox} option 
      */
-    addOption(option)
+    addOption(key,option)
     {
         this.options.push(option);
+        this.optionsMap[key]=option;
         this.total += option.vote;
         this.updateWinner(option);
     }
@@ -176,11 +208,40 @@ class VotingContainer
         if (option)
         {
             console.log("1 vote for " + option.label);
+            // Should check to see if user has voted --
+            // this will require some interaction with the backend.
             this.voteOption(option);
+            // Send request to server.
+            this.sendRequest(option);
         }
         else
         {
             console.log("Invalid vote!.");
+        }
+    }
+
+    /**
+     *
+     */
+    sendRequest(option)
+    {
+        if(!token)
+        {
+            return twitch.rig.log('Not authorized.');
+        }
+        twitch.rig.log('Requesting a vote addition.');
+        $.ajax(requests.set);
+    }
+
+    /**
+     * Set all votes.
+     * @param {dict} Dictionary of votes (option keys) to list of users.
+     */
+    setVotes(votes)
+    {
+        for(key in votes) {
+            var box=this.optionsMap[key]
+            box.vote = votes[key]
         }
     }
 
@@ -361,7 +422,7 @@ function buildContainer(selectType)
         {
             var option = new RectangleClickBox(
                 voteContainer, new StyleOptions(), labels[i], x, y, width, height);
-            voteContainer.addOption(option);
+            voteContainer.addOption(labels[i],option);
             x += 260/resScale;
         }
         return voteContainer;
@@ -436,7 +497,7 @@ class MinionMastersOverlay extends Overlay {
         for(var i =0; i < 3; i++)
         {
             var option = new RectangleClickBox(heroVotingContainer, labels[i], x, y, width, height);
-            heroVotingContainer.addOption(option);
+            heroVotingContainer.addOption(labels[i],option);
             x+=xSpacing;
         }
         this.containers["Hero"]=heroVotingContainer;
